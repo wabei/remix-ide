@@ -137,10 +137,6 @@ UniversalDApp.prototype.getBalanceInEther = function (address, callback) {
   })
 }
 
-UniversalDApp.prototype.pendingTransactions = function () {
-  return this.txRunner.pendingTxs
-}
-
 UniversalDApp.prototype.pendingTransactionsCount = function () {
   return Object.keys(this.txRunner.pendingTxs).length
 }
