@@ -8,10 +8,10 @@ var txHelper = remixLib.execution.txHelper
 var EventManager = remixLib.EventManager
 var executionContext = remixLib.execution.executionContext
 
-function UniversalDApp (globalRegistry) {
+function UniversalDApp (globalRegistry, config) {
   this.event = new EventManager()
+  this.config = globalRegistry.get('config').api
   this._deps = {
-    config: globalRegistry.get('config').api,
     compiler: globalRegistry.get('compiler').api
   }
   executionContext.event.register('contextChanged', this, function (context) {
@@ -37,12 +37,12 @@ UniversalDApp.prototype.resetEnvironment = function () {
     executionContext.vm().stateManager.cache.flush(function () {})
   }
   this.txRunner = new TxRunner(this.accounts, {
-    config: this._deps.config,
+    config: this.config,
     detectNetwork: (cb) => {
       executionContext.detectNetwork(cb)
     },
     personalMode: () => {
-      return this._deps.config.get('settings/personal-mode')
+      return this.config.get('settings/personal-mode')
     }
   })
   this.txRunner.event.register('transactionBroadcasted', (txhash) => {
@@ -66,7 +66,7 @@ UniversalDApp.prototype.createVMAccount = function (privateKey, balance, cb) {
 
 UniversalDApp.prototype.newAccount = function (password, passwordPromptCb, cb) {
   if (!executionContext.isVM()) {
-    if (!this._deps.config.get('settings/personal-mode')) {
+    if (!this.config.get('settings/personal-mode')) {
       return cb('Not running in personal mode')
     }
     return passwordPromptCb((passphrase) => {
@@ -100,7 +100,7 @@ UniversalDApp.prototype.getAccounts = function (cb) {
   if (!executionContext.isVM()) {
     // Weirdness of web3: listAccounts() is sync, `getListAccounts()` is async
     // See: https://github.com/ethereum/web3.js/issues/442
-    if (this._deps.config.get('settings/personal-mode')) {
+    if (this.config.get('settings/personal-mode')) {
       return executionContext.web3().personal.getListAccounts(cb)
     } else {
       return executionContext.web3().eth.getAccounts(cb)
