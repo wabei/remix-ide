@@ -18,15 +18,6 @@ function UniversalDApp (globalRegistry) {
   executionContext.event.register('contextChanged', this, function (context) {
     this.resetEnvironment()
   })
-  this._txRunnerAPI = {
-    config: this._deps.config,
-    detectNetwork: (cb) => {
-      executionContext.detectNetwork(cb)
-    },
-    personalMode: () => {
-      return this._deps.config.get('settings/personal-mode')
-    }
-  }
   this.data.contractsDetails = {}
   this._deps.compiler.event.register('compilationFinished', (success, data, source) => {
     this.data.contractsDetails = success && data ? data.contracts : {}
@@ -45,7 +36,15 @@ UniversalDApp.prototype.resetEnvironment = function () {
     this._addAccount('71975fbf7fe448e004ac7ae54cad0a383c3906055a65468714156a07385e96ce', '0x56BC75E2D63100000')
     executionContext.vm().stateManager.cache.flush(function () {})
   }
-  this.txRunner = new TxRunner(this.accounts, this._txRunnerAPI)
+  this.txRunner = new TxRunner(this.accounts, {
+    config: this._deps.config,
+    detectNetwork: (cb) => {
+      executionContext.detectNetwork(cb)
+    },
+    personalMode: () => {
+      return this._deps.config.get('settings/personal-mode')
+    }
+  })
   this.txRunner.event.register('transactionBroadcasted', (txhash) => {
     executionContext.detectNetwork((error, network) => {
       if (error || !network) return
