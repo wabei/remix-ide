@@ -10,7 +10,6 @@ var executionContext = remixLib.execution.executionContext
 
 function UniversalDApp (globalRegistry) {
   this.event = new EventManager()
-  this.data = {}
   this._deps = {
     config: globalRegistry.get('config').api,
     compiler: globalRegistry.get('compiler').api
@@ -18,6 +17,7 @@ function UniversalDApp (globalRegistry) {
   executionContext.event.register('contextChanged', this, function (context) {
     this.resetEnvironment()
   })
+  this.data = {}
   this.data.contractsDetails = {}
   this._deps.compiler.event.register('compilationFinished', (success, data, source) => {
     this.data.contractsDetails = success && data ? data.contracts : {}
