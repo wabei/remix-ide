@@ -1,6 +1,3 @@
-/* global */
-'use strict'
-
 var yo = require('yo-yo')
 var async = require('async')
 var ethJSUtil = require('ethereumjs-util')
@@ -16,34 +13,33 @@ var globalRegistry = require('./global/registry')
 
 function UniversalDApp () {
   this.event = new EventManager()
-  var self = this
-  self.data = {}
-  self._components = {}
-  self._components.registry = globalRegistry
-  self._deps = {
-    config: self._components.registry.get('config').api,
-    compiler: self._components.registry.get('compiler').api,
-    logCallback: self._components.registry.get('logCallback').api
+  this.data = {}
+  this._components = {}
+  this._components.registry = globalRegistry
+  this._deps = {
+    config: this._components.registry.get('config').api,
+    compiler: this._components.registry.get('compiler').api,
+    logCallback: this._components.registry.get('logCallback').api
   }
   executionContext.event.register('contextChanged', this, function (context) {
-    self.resetEnvironment()
+    this.resetEnvironment()
   })
-  self._txRunnerAPI = {
-    config: self._deps.config,
+  this._txRunnerAPI = {
+    config: this._deps.config,
     detectNetwork: (cb) => {
       executionContext.detectNetwork(cb)
     },
     personalMode: () => {
-      return self._deps.config.get('settings/personal-mode')
+      return this._deps.config.get('settings/personal-mode')
     }
   }
-  self.txRunner = new TxRunner({}, self._txRunnerAPI)
-  self.data.contractsDetails = {}
-  self._deps.compiler.event.register('compilationFinished', (success, data, source) => {
-    self.data.contractsDetails = success && data ? data.contracts : {}
+  this.txRunner = new TxRunner({}, this._txRunnerAPI)
+  this.data.contractsDetails = {}
+  this._deps.compiler.event.register('compilationFinished', (success, data, source) => {
+    this.data.contractsDetails = success && data ? data.contracts : {}
   })
-  self.accounts = {}
-  self.resetEnvironment()
+  this.accounts = {}
+  this.resetEnvironment()
 }
 
 UniversalDApp.prototype.resetEnvironment = function () {
@@ -59,10 +55,9 @@ UniversalDApp.prototype.resetEnvironment = function () {
   this.txRunner = new TxRunner(this.accounts, this._txRunnerAPI)
   this.txRunner.event.register('transactionBroadcasted', (txhash) => {
     executionContext.detectNetwork((error, network) => {
-      if (!error && network) {
-        var txLink = executionContext.txDetailsLink(network.name, txhash)
-        if (txLink) this._deps.logCallback(yo`<a href="${txLink}" target="_blank">${txLink}</a>`)
-      }
+      if (error || !network) return
+      var txLink = executionContext.txDetailsLink(network.name, txhash)
+      if (txLink) this._deps.logCallback(yo`<a href="${txLink}" target="_blank">${txLink}</a>`)
     })
   })
 }
@@ -83,93 +78,71 @@ UniversalDApp.prototype.newAccount = function (password, passwordPromptCb, cb) {
     if (!this._deps.config.get('settings/personal-mode')) {
       return cb('Not running in personal mode')
     }
-    passwordPromptCb((passphrase) => {
+    return passwordPromptCb((passphrase) => {
       executionContext.web3().personal.newAccount(passphrase, cb)
     })
-  } else {
-    var privateKey
-    do {
-      privateKey = crypto.randomBytes(32)
-    } while (!ethJSUtil.isValidPrivate(privateKey))
-    this._addAccount(privateKey, '0x56BC75E2D63100000')
-    executionContext.vm().stateManager.cache.flush(function () {})
-    cb(null, '0x' + ethJSUtil.privateToAddress(privateKey).toString('hex'))
   }
+  var privateKey
+  do {
+    privateKey = crypto.randomBytes(32)
+  } while (!ethJSUtil.isValidPrivate(privateKey))
+  this._addAccount(privateKey, '0x56BC75E2D63100000')
+  executionContext.vm().stateManager.cache.flush(function () {})
+  cb(null, '0x' + ethJSUtil.privateToAddress(privateKey).toString('hex'))
 }
 
 UniversalDApp.prototype._addAccount = function (privateKey, balance) {
-  var self = this
-
   if (!executionContext.isVM()) {
     throw new Error('_addAccount() cannot be called in non-VM mode')
   }
 
-  if (self.accounts) {
-    privateKey = Buffer.from(privateKey, 'hex')
-    var address = ethJSUtil.privateToAddress(privateKey)
+  if (!this.accounts) return
+  privateKey = Buffer.from(privateKey, 'hex')
+  var address = ethJSUtil.privateToAddress(privateKey)
 
-    // FIXME: we don't care about the callback, but we should still make this proper
-    executionContext.vm().stateManager.putAccountBalance(address, balance || '0xf00000000000000001', function cb () {})
-    self.accounts['0x' + address.toString('hex')] = { privateKey: privateKey, nonce: 0 }
-  }
+  // FIXME: we don't care about the callback, but we should still make this proper
+  executionContext.vm().stateManager.putAccountBalance(address, balance || '0xf00000000000000001', function cb () {})
+  this.accounts['0x' + address.toString('hex')] = { privateKey: privateKey, nonce: 0 }
 }
 
 UniversalDApp.prototype.getAccounts = function (cb) {
-  var self = this
-
   if (!executionContext.isVM()) {
     // Weirdness of web3: listAccounts() is sync, `getListAccounts()` is async
     // See: https://github.com/ethereum/web3.js/issues/442
     if (this._deps.config.get('settings/personal-mode')) {
-      executionContext.web3().personal.getListAccounts(cb)
+      return executionContext.web3().personal.getListAccounts(cb)
     } else {
-      executionContext.web3().eth.getAccounts(cb)
+      return executionContext.web3().eth.getAccounts(cb)
     }
-  } else {
-    if (!self.accounts) {
-      return cb('No accounts?')
-    }
-
-    cb(null, Object.keys(self.accounts))
   }
+  if (!this.accounts) {
+    return cb('No accounts?')
+  }
+
+  cb(null, Object.keys(this.accounts))
 }
 
 UniversalDApp.prototype.getBalance = function (address, cb) {
-  var self = this
-
   address = ethJSUtil.stripHexPrefix(address)
 
   if (!executionContext.isVM()) {
-    executionContext.web3().eth.getBalance(address, function (err, res) {
-      if (err) {
-        cb(err)
-      } else {
-        cb(null, res.toString(10))
-      }
-    })
-  } else {
-    if (!self.accounts) {
-      return cb('No accounts?')
-    }
-
-    executionContext.vm().stateManager.getAccountBalance(Buffer.from(address, 'hex'), function (err, res) {
-      if (err) {
-        cb('Account not found')
-      } else {
-        cb(null, new BN(res).toString(10))
-      }
+    return executionContext.web3().eth.getBalance(address, function (err, res) {
+      if (err) return cb(err)
+      cb(null, res.toString(10))
     })
   }
+  if (!this.accounts) return cb('No accounts?')
+
+  executionContext.vm().stateManager.getAccountBalance(Buffer.from(address, 'hex'), function (err, res) {
+    if (err) return cb('Account not found')
+    cb(null, new BN(res).toString(10))
+  })
 }
 
 UniversalDApp.prototype.getBalanceInEther = function (address, callback) {
-  var self = this
-  self.getBalance(address, (error, balance) => {
-    if (error) {
-      callback(error)
-    } else {
-      callback(null, executionContext.web3().fromWei(balance, 'ether'))
-    }
+  this.getBalance(address, (error, balance) => {
+    if (error) return callback(error)
+    callback(null, executionContext.web3().fromWei(balance, 'ether'))
   })
 }
 
@@ -181,32 +154,12 @@ UniversalDApp.prototype.pendingTransactionsCount = function () {
   return Object.keys(this.txRunner.pendingTxs).length
 }
 
-/**
-  * deploy the given contract
-  *
-  * @param {String} data    - data to send with the transaction ( return of txFormat.buildData(...) ).
-  * @param {Function} callback    - callback.
-  */
 UniversalDApp.prototype.createContract = function (data, confirmationCb, continueCb, promptCb, callback) {
-  this.runTx({data: data, useCall: false}, confirmationCb, continueCb, promptCb, (error, txResult) => {
-    // see universaldapp.js line 660 => 700 to check possible values of txResult (error case)
-    callback(error, txResult)
-  })
+  this.runTx({data: data, useCall: false}, confirmationCb, continueCb, promptCb, callback)
 }
 
-/**
-  * call the current given contract
-  *
-  * @param {String} to    - address of the contract to call.
-  * @param {String} data    - data to send with the transaction ( return of txFormat.buildData(...) ).
-  * @param {Object} funAbi    - abi definition of the function to call.
-  * @param {Function} callback    - callback.
-  */
 UniversalDApp.prototype.callFunction = function (to, data, funAbi, confirmationCb, continueCb, promptCb, callback) {
-  this.runTx({to: to, data: data, useCall: funAbi.constant}, confirmationCb, continueCb, promptCb, (error, txResult) => {
-    // see universaldapp.js line 660 => 700 to check possible values of txResult (error case)
-    callback(error, txResult)
-  })
+  this.runTx({to: to, data: data, useCall: funAbi.constant}, confirmationCb, continueCb, promptCb, callback)
 }
 
 UniversalDApp.prototype.context = function () {
@@ -222,18 +175,12 @@ UniversalDApp.prototype.getFallbackInterface = function (contractABI) {
 }
 
 UniversalDApp.prototype.getInputs = function (funABI) {
-  if (!funABI.inputs) {
-    return ''
-  }
-  return txHelper.inputParametersDeclarationToString(funABI.inputs)
+  return (funABI.inputs ? txHelper.inputParametersDeclarationToString(funABI.inputs) : '')
 }
 
 /**
  * This function send a tx without alerting the user (if mainnet or if gas estimation too high).
  * SHOULD BE TAKEN CAREFULLY!
- *
- * @param {Object} tx    - transaction.
- * @param {Function} callback    - callback.
  */
 UniversalDApp.prototype.silentRunTx = function (tx, cb) {
   if (!executionContext.isVM()) return cb('Cannot silently send transaction through a web3 provider')
