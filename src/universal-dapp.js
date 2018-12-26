@@ -27,7 +27,6 @@ function UniversalDApp (globalRegistry) {
       return this._deps.config.get('settings/personal-mode')
     }
   }
-  this.txRunner = new TxRunner({}, this._txRunnerAPI)
   this.data.contractsDetails = {}
   this._deps.compiler.event.register('compilationFinished', (success, data, source) => {
     this.data.contractsDetails = success && data ? data.contracts : {}
