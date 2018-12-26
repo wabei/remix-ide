@@ -8,12 +8,10 @@ var txHelper = remixLib.execution.txHelper
 var EventManager = remixLib.EventManager
 var executionContext = remixLib.execution.executionContext
 
-function UniversalDApp (globalRegistry, config) {
+function UniversalDApp (config) {
   this.event = new EventManager()
-  this.config = globalRegistry.get('config').api
-  executionContext.event.register('contextChanged', this, function (context) {
-    this.resetEnvironment()
-  })
+  this.config = config
+  executionContext.event.register('contextChanged', this.resetEnvironment.bind(this))
   this.resetEnvironment()
 }
 
