@@ -549,6 +549,14 @@ function settings (container, self) {
       })
     })(networkcallid)
   }
+
+  var options = executionContext.environments.map((obj) => {
+    return yo`<option id="${obj.id}"
+    title="${obj.desc}"
+    value="${obj.id}" name="executionContext"> ${obj.name}
+  </option>`
+  })
+
   var environmentEl = yo`
     <div class="${css.crow}">
       <div id="selectExEnv" class="${css.col1_1}">
@@ -557,19 +565,7 @@ function settings (container, self) {
       <div class=${css.environment}>
         ${net}
         <select id="selectExEnvOptions" onchange=${() => { updateNetwork() }} class="${css.select}">
-          <option id="vm-mode"
-            title="Execution environment does not connect to any node, everything is local and in memory only."
-            value="vm" checked name="executionContext"> JavaScript VM
-          </option>
-          <option id="injected-mode"
-            title="Execution environment has been provided by Metamask or similar provider."
-            value="injected" checked name="executionContext"> Injected Web3
-          </option>
-          <option id="web3-mode"
-            title="Execution environment connects to node at localhost (or via IPC if available), transactions will be sent to the network and can cause loss of money or worse!
-            If this page is served via https and you access your node via http, it might not work. In this case, try cloning the repository and serving it via http."
-            value="web3" name="executionContext"> Web3 Provider
-          </option>
+        ${options}
         </select>
         <a href="https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md" target="_blank"><i class="${css.icon} fa fa-info"></i></a>
       </div>
